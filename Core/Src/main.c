@@ -23,13 +23,15 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "lidar.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 extern int doit;
 int doit = 0;
+uint8_t rx_buffer[10];
+int current_i = 0;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -63,7 +65,9 @@ ETH_TxPacketConfig TxConfig;
 
 ETH_HandleTypeDef heth;
 
+UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
 
@@ -72,14 +76,37 @@ UART_HandleTypeDef huart3;
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_ETH_Init(void);
+static void MX_DMA_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_ETH_Init(void);
+static void MX_USART2_UART_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void transmit_linebreak() {
+	  char linebreak = '\r';
+	  CDC_Transmit_FS(&linebreak, 1);
+
+	  linebreak = '\n';
+	  CDC_Transmit_FS(&linebreak, 1);
+}
+
+void transmit_rx_buffer() {
+	char buffer[32];
+	memset(buffer, 0, 32);
+	sprintf(buffer, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+			rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3], rx_buffer[4], rx_buffer[5], rx_buffer[6], rx_buffer[7],
+			rx_buffer[8], rx_buffer[9]);
+
+	CDC_Transmit_FS(buffer, 32);
+}
+
+void transmit_string(char *str) {
+	CDC_Transmit_FS(str, strlen(str));
+}
 
 /* USER CODE END 0 */
 
@@ -90,7 +117,9 @@ static void MX_USART3_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+#if(USE_HAL_UART_REGISTER_CALLBACKS == 1)
+	//sdfsdf
+#endif
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -111,21 +140,130 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_ETH_Init();
+  MX_DMA_Init();
   MX_USART3_UART_Init();
   MX_USB_DEVICE_Init();
+  MX_ETH_Init();
+  MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
+  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
+/*
+  HAL_StatusTypeDef res;
+
+  transmit_string("Starting laser...");
+
+  current_laser_state = LASER_ON_REQUESTED;
+  uint8_t turn_on_request[] = {0xCD, 0x01, 0x03, 0x04};
+  res = HAL_UART_Transmit(&huart2, turn_on_request, 4, 2000);
+  HAL_StatusTypeDef res2 = HAL_UART_Receive_DMA(&huart2, rx_buffer, 4);
+
+  transmit_linebreak();
+
+  if(res == HAL_OK) {
+	  transmit_string("Transmit OK\r\n");
+  }
+  else {
+	  transmit_string("Transmit Not OK\r\n");
+  }
+
+  if(res2 == HAL_OK) {
+	  transmit_string("Receive OK\r\n");
+  }
+  else {
+	  transmit_string("Receive Not OK\r\n");
+  }
+
+  transmit_rx_buffer();
+  transmit_linebreak();
+
+  transmit_string("Starting main loop\r\n");
+
+*/
+  HAL_Delay(1000);
+
+  lidar_t lidar = lidar_new(huart2);
+
+  int toggle = 0;
+  int counter = 0;
+  lidar_turn_on(&lidar);
   while (1)
   {
     /* USER CODE END WHILE */
+
     /* USER CODE BEGIN 3 */
+	  counter++;
+	  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
 	  HAL_Delay(1000);
-	  HAL_GPIO_TogglePin(GPIOD, GPIO_PIN_3);
+	  int distance;
+	  lidar_status_t status = lidar_measure(&lidar, &distance);
+
+	  if(status == LIDAR_OK) {
+		  char buffer[10];
+		  memset(buffer, 0, 10);
+		  sprintf(buffer, "%d \r\n", distance);
+
+	  }
+	  else{
+		  char buffer[20];
+		  memset(buffer, 0, 20);
+		  sprintf(buffer, "%d: %d =( \r\n", counter, status);
+		  CDC_Transmit_FS(buffer, 20);
+	  }
+
+
+	  /*
+	  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
+	  if(toggle == 0) {
+		  toggle = 1;
+		  lidar_turn_on(&lidar);
+	  }
+	  else if(toggle == 1) {
+		  toggle = 0;
+		  lidar_turn_off(&lidar);
+	  }
+	  HAL_Delay(1000);
+	  */
+
+
+/*
+	  uint8_t measure_request[] = {0xCD, 0x01, 0x06, 0x07};
+	  res = HAL_UART_Transmit(&huart2, measure_request, 4, 2000);
+
+	  res = HAL_UART_Receive_DMA(&huart2, rx_buffer, 8);
+
+
+	  if(res2 == HAL_OK) {
+		  transmit_string("Receive OK\r\n");
+	  }
+	  else {
+		  transmit_string("Receive Not OK\r\n");
+	  }
+
+	  if(rx_buffer[0] == 0xFA) {
+		  auto a = rx_buffer[3];
+		  auto b = rx_buffer[4];
+		  auto distance = a | (b << 8);
+		  int dfd = 32;
+
+		  uint8_t expected_checksum = rx_buffer[1]+rx_buffer[2]+rx_buffer[3]+rx_buffer[4]+rx_buffer[5]+rx_buffer[6];
+		  uint8_t actual_checksum = rx_buffer[7];
+		  auto same = expected_checksum == actual_checksum;
+		  if(same) {
+			  char buffer[10];
+			  memset(buffer, 0, 10);
+			  sprintf(buffer, "%d ", distance);
+			  CDC_Transmit_FS(buffer, 10);
+
+			  transmit_linebreak();
+		  }
+	  }
+	  */
   }
   /* USER CODE END 3 */
 }
@@ -233,6 +371,41 @@ static void MX_ETH_Init(void)
 }
 
 /**
+  * @brief USART2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART2_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART2_Init 0 */
+	//huart2.RxCpltCallback = HAL_UART_RxCpltCallback;
+  /* USER CODE END USART2_Init 0 */
+
+  /* USER CODE BEGIN USART2_Init 1 */
+
+  /* USER CODE END USART2_Init 1 */
+  huart2.Instance = USART2;
+  huart2.Init.BaudRate = 115200;
+  huart2.Init.WordLength = UART_WORDLENGTH_8B;
+  huart2.Init.StopBits = UART_STOPBITS_1;
+  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Mode = UART_MODE_TX_RX;
+  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART2_Init 2 */
+
+  /* USER CODE END USART2_Init 2 */
+
+}
+
+/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -268,6 +441,22 @@ static void MX_USART3_UART_Init(void)
 }
 
 /**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Stream5_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream5_IRQn);
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -290,12 +479,9 @@ static void MX_GPIO_Init(void)
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_PowerSwitchOn_GPIO_Port, USB_PowerSwitchOn_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_3|GPIO_PIN_4, GPIO_PIN_RESET);
-
   /*Configure GPIO pin : USER_Btn_Pin */
   GPIO_InitStruct.Pin = USER_Btn_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USER_Btn_GPIO_Port, &GPIO_InitStruct);
 
@@ -318,13 +504,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(USB_OverCurrent_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pins : PD3 PD4 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
 }
 

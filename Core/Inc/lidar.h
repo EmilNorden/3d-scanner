@@ -11,28 +11,13 @@
 #include "stm32f7xx_hal.h"
 
 typedef enum {
-	LIDAR_OK,
-	LIDAR_UART_ERROR,
-	LIDAR_OUT_OF_RANGE,
-	LIDAR_LOW_SNR,
-	LIDAR_INVALID_CHECKSUM,
-	LIDAR_LASER_NOT_ON,
-	LIDAR_UNKNOWN_ERROR,
-} lidar_status_t;
+	FALSE,
+	TRUE
+} success_t;
 
-typedef enum {
-	LIDAR_OFF,
-	LIDAR_ON,
-} lidar_state_t;
-
-typedef struct {
-	UART_HandleTypeDef huart;
-	lidar_state_t state;
-	uint8_t rx_buffer[10];
-} lidar_t;
-
-lidar_t lidar_new(UART_HandleTypeDef huart);
-lidar_status_t lidar_turn_on(lidar_t* lidar);
-lidar_status_t lidar_measure(lidar_t* lidar, int *out_distance);
+void lidar_init(UART_HandleTypeDef *huart);
+success_t lidar_turn_on(void);
+success_t lidar_turn_off(void);
+success_t lidar_measure(int *out_distance);
 
 #endif /* INC_LIDAR_H_ */

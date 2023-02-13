@@ -28,10 +28,7 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-extern int doit;
-int doit = 0;
-uint8_t rx_buffer[10];
-int current_i = 0;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -70,7 +67,6 @@ UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
-
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -86,27 +82,6 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void transmit_linebreak() {
-	  char linebreak = '\r';
-	  CDC_Transmit_FS(&linebreak, 1);
-
-	  linebreak = '\n';
-	  CDC_Transmit_FS(&linebreak, 1);
-}
-
-void transmit_rx_buffer() {
-	char buffer[32];
-	memset(buffer, 0, 32);
-	sprintf(buffer, "%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
-			rx_buffer[0], rx_buffer[1], rx_buffer[2], rx_buffer[3], rx_buffer[4], rx_buffer[5], rx_buffer[6], rx_buffer[7],
-			rx_buffer[8], rx_buffer[9]);
-
-	CDC_Transmit_FS(buffer, 32);
-}
-
-void transmit_string(char *str) {
-	CDC_Transmit_FS(str, strlen(str));
-}
 
 /* USER CODE END 0 */
 
@@ -152,119 +127,32 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
-/*
   HAL_StatusTypeDef res;
 
-  transmit_string("Starting laser...");
+  // res = HAL_UART_Receive_DMA(&huart2, rxbuffer, 8);
+  //res = HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rxbuffer, 8);
 
-  current_laser_state = LASER_ON_REQUESTED;
-  uint8_t turn_on_request[] = {0xCD, 0x01, 0x03, 0x04};
-  res = HAL_UART_Transmit(&huart2, turn_on_request, 4, 2000);
-  HAL_StatusTypeDef res2 = HAL_UART_Receive_DMA(&huart2, rx_buffer, 4);
+  lidar_init(&huart2);
 
-  transmit_linebreak();
-
-  if(res == HAL_OK) {
-	  transmit_string("Transmit OK\r\n");
-  }
-  else {
-	  transmit_string("Transmit Not OK\r\n");
-  }
-
-  if(res2 == HAL_OK) {
-	  transmit_string("Receive OK\r\n");
-  }
-  else {
-	  transmit_string("Receive Not OK\r\n");
-  }
-
-  transmit_rx_buffer();
-  transmit_linebreak();
-
-  transmit_string("Starting main loop\r\n");
-
-*/
+  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
   HAL_Delay(1000);
 
-  lidar_t lidar = lidar_new(huart2);
+  lidar_turn_on();
 
-  int toggle = 0;
-  int counter = 0;
-  lidar_turn_on(&lidar);
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  counter++;
+
 	  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
+
+	  int distance = 0;
+	  success_t res = lidar_measure(&distance);
 	  HAL_Delay(1000);
-	  int distance;
-	  lidar_status_t status = lidar_measure(&lidar, &distance);
 
-	  if(status == LIDAR_OK) {
-		  char buffer[10];
-		  memset(buffer, 0, 10);
-		  sprintf(buffer, "%d \r\n", distance);
-
-	  }
-	  else{
-		  char buffer[20];
-		  memset(buffer, 0, 20);
-		  sprintf(buffer, "%d: %d =( \r\n", counter, status);
-		  CDC_Transmit_FS(buffer, 20);
-	  }
-
-
-	  /*
-	  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
-	  if(toggle == 0) {
-		  toggle = 1;
-		  lidar_turn_on(&lidar);
-	  }
-	  else if(toggle == 1) {
-		  toggle = 0;
-		  lidar_turn_off(&lidar);
-	  }
-	  HAL_Delay(1000);
-	  */
-
-
-/*
-	  uint8_t measure_request[] = {0xCD, 0x01, 0x06, 0x07};
-	  res = HAL_UART_Transmit(&huart2, measure_request, 4, 2000);
-
-	  res = HAL_UART_Receive_DMA(&huart2, rx_buffer, 8);
-
-
-	  if(res2 == HAL_OK) {
-		  transmit_string("Receive OK\r\n");
-	  }
-	  else {
-		  transmit_string("Receive Not OK\r\n");
-	  }
-
-	  if(rx_buffer[0] == 0xFA) {
-		  auto a = rx_buffer[3];
-		  auto b = rx_buffer[4];
-		  auto distance = a | (b << 8);
-		  int dfd = 32;
-
-		  uint8_t expected_checksum = rx_buffer[1]+rx_buffer[2]+rx_buffer[3]+rx_buffer[4]+rx_buffer[5]+rx_buffer[6];
-		  uint8_t actual_checksum = rx_buffer[7];
-		  auto same = expected_checksum == actual_checksum;
-		  if(same) {
-			  char buffer[10];
-			  memset(buffer, 0, 10);
-			  sprintf(buffer, "%d ", distance);
-			  CDC_Transmit_FS(buffer, 10);
-
-			  transmit_linebreak();
-		  }
-	  }
-	  */
   }
+
   /* USER CODE END 3 */
 }
 
@@ -379,7 +267,9 @@ static void MX_USART2_UART_Init(void)
 {
 
   /* USER CODE BEGIN USART2_Init 0 */
-	//huart2.RxCpltCallback = HAL_UART_RxCpltCallback;
+  /*huart2.RxCpltCallback = HAL_UART_RxCpltCallback;
+  huart2.ErrorCallback = HAL_UART_ErrorCallback;
+  huart2.RxEventCallback = HAL_UARTEx_RxEventCallback;*/
   /* USER CODE END USART2_Init 0 */
 
   /* USER CODE BEGIN USART2_Init 1 */
@@ -509,6 +399,46 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
+/*
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+  // Prevent unused argument(s) compilation warning
+  UNUSED(huart);
+
+  int add = 23;
+  UNUSED(add);
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+  // Prevent unused argument(s) compilation warning
+  UNUSED(huart);
+
+  int add = 23;
+  UNUSED(add);
+}
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Pos) {
+	  // Prevent unused argument(s) compilation warning
+	  UNUSED(huart);
+	  UNUSED(Pos);
+
+	  switch(huart->RxEventType) {
+	  case HAL_UART_RXEVENT_TC:
+		  request_state = REQ_COMPLETE;
+		  break;
+	  case HAL_UART_RXEVENT_HT:
+		  // Ignore this event
+		  break;
+	  case HAL_UART_RXEVENT_IDLE:
+		  request_state = REQ_IDLE;
+		  break;
+	  }
+
+	  int add = 23;
+	  UNUSED(add);
+}
+*/
 /* USER CODE END 4 */
 
 /**

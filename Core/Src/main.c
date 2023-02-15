@@ -92,9 +92,7 @@ static void MX_USART2_UART_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-#if(USE_HAL_UART_REGISTER_CALLBACKS == 1)
-	//sdfsdf
-#endif
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -120,17 +118,6 @@ int main(void)
   MX_USB_DEVICE_Init();
   MX_ETH_Init();
   MX_USART2_UART_Init();
-  /* USER CODE BEGIN 2 */
-
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-
-  HAL_StatusTypeDef res;
-
-  // res = HAL_UART_Receive_DMA(&huart2, rxbuffer, 8);
-  //res = HAL_UARTEx_ReceiveToIdle_DMA(&huart2, rxbuffer, 8);
 
   lidar_init(&huart2);
 
@@ -148,7 +135,7 @@ int main(void)
 	  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
 
 	  int distance = 0;
-	  success_t res = lidar_measure(&distance);
+	  lidar_measure(&distance);
 	  HAL_Delay(1000);
 
   }
@@ -399,46 +386,6 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-/*
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-  // Prevent unused argument(s) compilation warning
-  UNUSED(huart);
-
-  int add = 23;
-  UNUSED(add);
-}
-
-void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
-{
-  // Prevent unused argument(s) compilation warning
-  UNUSED(huart);
-
-  int add = 23;
-  UNUSED(add);
-}
-
-void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Pos) {
-	  // Prevent unused argument(s) compilation warning
-	  UNUSED(huart);
-	  UNUSED(Pos);
-
-	  switch(huart->RxEventType) {
-	  case HAL_UART_RXEVENT_TC:
-		  request_state = REQ_COMPLETE;
-		  break;
-	  case HAL_UART_RXEVENT_HT:
-		  // Ignore this event
-		  break;
-	  case HAL_UART_RXEVENT_IDLE:
-		  request_state = REQ_IDLE;
-		  break;
-	  }
-
-	  int add = 23;
-	  UNUSED(add);
-}
-*/
 /* USER CODE END 4 */
 
 /**

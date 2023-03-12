@@ -15,9 +15,11 @@ typedef enum {
 	TRUE
 } success_t;
 
-void lidar_init(UART_HandleTypeDef *huart);
+success_t lidar_init(UART_HandleTypeDef *huart);
 success_t lidar_turn_on(void);
 success_t lidar_turn_off(void);
-success_t lidar_measure(int *out_distance);
+success_t lidar_begin_measure(void);
+success_t lidar_measure(void);
+int lidar_get_measurement(void);
 
 #endif /* INC_LIDAR_H_ */

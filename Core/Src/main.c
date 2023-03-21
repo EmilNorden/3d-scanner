@@ -1,4 +1,4 @@
-/* USER CODE BEGIN Header */
+	/* USER CODE BEGIN Header */
 /**
   ******************************************************************************
   * @file           : main.c
@@ -23,7 +23,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "lidar.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -122,31 +121,33 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   //lidar_begin_measure();
-  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
-  HAL_Delay(1000);
-  success_t init_res = lidar_init(&huart2);
-  success_t measure_res = lidar_begin_measure();
+  //while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
+  //HAL_Delay(1000);
+  //success_t init_res = lidar_init(&huart2);
+  //success_t measure_res = lidar_begin_measure();
+
+  return scanner_main();
   while (1)
   {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
 
-	  while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
+	  /*while(HAL_GPIO_ReadPin(GPIOC, USER_Btn_Pin) != GPIO_PIN_SET) {}
 	  HAL_Delay(1000);
 	  int distances[10];
 	  for(int i = 0; i < 10; ++i) {
 		  distances[i] = lidar_get_measurement();
 	  }
-
+*/
 	 // lidar_turn_on();
 	  //HAL_Delay(500);
 
 	  /*int distance = 0;
 	  /*lidar_measure(&distance);*/
-	  int sds= 32;
+	  /*int sds= 32;
 	  UNUSED(sds);
-
+*/
 
 	  //lidar_turn_off();
 	  //HAL_Delay(500);

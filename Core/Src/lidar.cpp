@@ -1,4 +1,7 @@
 #include "lidar.h"
+#include "irq_sentinel.h"
+#include <stdexcept>
+#include <unordered_map>
 
 typedef enum {
 	LIDAR_STATE_OFF,
@@ -35,6 +38,49 @@ static success_t wait_for_success(uint32_t timeout);
 static success_t header_is_ok(void);
 
 #define MEASURE_RESPONSE_SIZE	16
+std::unordered_map<UART_HandleTypeDef*, std::shared_ptr<Lidar>> active_lidars;
+
+static std::shared_ptr<Lidar> Lidar::create(UART_HandleTypeDef *huart, IRQn_Type uart_irq) {
+	ScopedDisabledIRQ sentinel(uart_irq);
+	auto active_lidar = active_lidars.find(huart);
+	if(active_lidar == active_lidars.end()) {
+		auto result = std::make_shared<Lidar>(new Lidar(huart));
+
+		active_lidars.emplace(huart, result);
+
+		return result;
+	}
+
+	return active_lidar->second;
+}
+
+Lidar::Lidar(UART_HandleTypeDef *huart)
+: m_huart(huart) {
+	if(HAL_UART_RegisterCallback(huart, HAL_UART_RX_COMPLETE_CB_ID, lidar_HAL_UART_RxCpltCallback) != HAL_OK) {
+		throw std::runtime_error("Unable to register UART Complete callback");
+	}
+
+	if(HAL_UART_RegisterCallback(huart, HAL_UART_ERROR_CB_ID, lidar_HAL_UART_ErrorCallback) != HAL_OK) {
+		throw std::runtime_error("Unable to register UART error callback");
+	}
+}
+
+bool Lidar::start_measure() {
+	const uint8_t request[] = { 0xCD, 0x04, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x04 };
+
+
+	// Initial response will be FA 00 01 01
+	if (HAL_UART_Receive_IT(lidar_huart, rx_header_buffer, 4) != HAL_OK) {
+		return false;
+	}
+
+	if (HAL_UART_Transmit(lidar_huart, request, 12, 2000) != HAL_OK) {
+		return false;
+	}
+
+	return true;
+}
 
 
 success_t lidar_init(UART_HandleTypeDef *huart) {
@@ -170,6 +216,7 @@ void lidar_HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 }
 
 void lidar_HAL_UART_ErrorCallback(UART_HandleTypeDef *huart) {
+
 	current_state = LIDAR_STATE_PENDING_TURN_OFF;
 	lidar_turn_off();
 
@@ -266,3 +313,4 @@ static success_t header_is_ok(void) {
 
 	return TRUE;
 }
+
